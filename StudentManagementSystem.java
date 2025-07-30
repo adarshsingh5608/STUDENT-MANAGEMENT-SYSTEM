@@ -1,34 +1,16 @@
-package com.mycompany.student.management.system;
-
-import java.util.ArrayList;
+import java.sql.*;
 import java.util.Scanner;
-
-class Student {
-    int id;
-    String name;
-    int age;
-    String course;
-
-    public Student(int id, String name, int age, String course) {
-        this.id = id;
-        this.name = name;
-        this.age = age;
-        this.course = course;
-    }
-
-    public void display() {
-        System.out.println("ID: " + id);
-        System.out.println("Name: " + name);
-        System.out.println("Age: " + age);
-        System.out.println("Course: " + course);
-        System.out.println("---------------------------");
-    }
-}
 
 public class StudentManagementSystem {
 
+    public static Connection getConnection() throws SQLException {
+        String url = "jdbc:mysql://localhost:3306/studentdb";
+        String user = "root"; // 🔁 Replace with your MySQL username
+        String password = "22048"; // 🔁 Replace with your MySQL password
+        return DriverManager.getConnection(url, user, password);
+    }
+
     public static void main(String[] args) {
-        ArrayList<Student> students = new ArrayList<>();
         Scanner sc = new Scanner(System.in);
         int choice;
 
@@ -44,49 +26,85 @@ public class StudentManagementSystem {
 
             switch (choice) {
                 case 1:
-                    System.out.print("Enter ID: ");
-                    int id = sc.nextInt();
-                    sc.nextLine(); // consume newline
-                    System.out.print("Enter Name: ");
-                    String name = sc.nextLine();
-                    System.out.print("Enter Age: ");
-                    int age = sc.nextInt();
-                    sc.nextLine();
-                    System.out.print("Enter Course: ");
-                    String course = sc.nextLine();
-                    students.add(new Student(id, name, age, course));
-                    System.out.println("✅ Student added successfully!");
+                    try (Connection conn = getConnection()) {
+                        System.out.print("Enter ID: ");
+                        int id = sc.nextInt();
+                        sc.nextLine(); // clear buffer
+                        System.out.print("Enter Name: ");
+                        String name = sc.nextLine();
+                        System.out.print("Enter Age: ");
+                        int age = sc.nextInt();
+                        sc.nextLine(); // clear buffer
+                        System.out.print("Enter Course: ");
+                        String course = sc.nextLine();
+
+                        String sql = "INSERT INTO students (id, name, age, course) VALUES (?, ?, ?, ?)";
+                        PreparedStatement stmt = conn.prepareStatement(sql);
+                        stmt.setInt(1, id);
+                        stmt.setString(2, name);
+                        stmt.setInt(3, age);
+                        stmt.setString(4, course);
+                        stmt.executeUpdate();
+                        System.out.println("✅ Student added to database!");
+                    } catch (SQLException e) {
+                        System.out.println("❌ Error: " + e.getMessage());
+                    }
                     break;
 
                 case 2:
-                    System.out.println("\n📋 List of Students:");
-                    for (Student s : students) {
-                        s.display();
+                    try (Connection conn = getConnection()) {
+                        String sql = "SELECT * FROM students";
+                        PreparedStatement stmt = conn.prepareStatement(sql);
+                        ResultSet rs = stmt.executeQuery();
+                        System.out.println("\n📋 List of Students:");
+                        while (rs.next()) {
+                            System.out.println("ID: " + rs.getInt("id"));
+                            System.out.println("Name: " + rs.getString("name"));
+                            System.out.println("Age: " + rs.getInt("age"));
+                            System.out.println("Course: " + rs.getString("course"));
+                            System.out.println("---------------------------");
+                        }
+                    } catch (SQLException e) {
+                        System.out.println("❌ Error: " + e.getMessage());
                     }
                     break;
 
                 case 3:
                     System.out.print("Enter Student ID to search: ");
                     int searchId = sc.nextInt();
-                    boolean found = false;
-                    for (Student s : students) {
-                        if (s.id == searchId) {
-                            s.display();
-                            found = true;
-                            break;
+                    try (Connection conn = getConnection()) {
+                        String sql = "SELECT * FROM students WHERE id = ?";
+                        PreparedStatement stmt = conn.prepareStatement(sql);
+                        stmt.setInt(1, searchId);
+                        ResultSet rs = stmt.executeQuery();
+                        if (rs.next()) {
+                            System.out.println("ID: " + rs.getInt("id"));
+                            System.out.println("Name: " + rs.getString("name"));
+                            System.out.println("Age: " + rs.getInt("age"));
+                            System.out.println("Course: " + rs.getString("course"));
+                        } else {
+                            System.out.println("❌ Student not found.");
                         }
+                    } catch (SQLException e) {
+                        System.out.println("❌ Error: " + e.getMessage());
                     }
-                    if (!found) System.out.println("❌ Student not found.");
                     break;
 
                 case 4:
                     System.out.print("Enter Student ID to delete: ");
                     int deleteId = sc.nextInt();
-                    boolean removed = students.removeIf(s -> s.id == deleteId);
-                    if (removed) {
-                        System.out.println("🗑️ Student deleted successfully.");
-                    } else {
-                        System.out.println("❌ Student not found.");
+                    try (Connection conn = getConnection()) {
+                        String sql = "DELETE FROM students WHERE id = ?";
+                        PreparedStatement stmt = conn.prepareStatement(sql);
+                        stmt.setInt(1, deleteId);
+                        int rows = stmt.executeUpdate();
+                        if (rows > 0) {
+                            System.out.println("🗑️ Student deleted successfully.");
+                        } else {
+                            System.out.println("❌ Student not found.");
+                        }
+                    } catch (SQLException e) {
+                        System.out.println("❌ Error: " + e.getMessage());
                     }
                     break;
 
@@ -97,6 +115,7 @@ public class StudentManagementSystem {
                 default:
                     System.out.println("⚠️ Invalid choice. Try again.");
             }
+
         } while (choice != 5);
 
         sc.close();
